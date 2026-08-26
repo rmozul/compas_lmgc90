@@ -160,7 +160,11 @@ module wrap_lmgc90_compas
                       nullify_entitylist_nlgs_3D    => nullify_entitylist_nlgs   , &
                       clean_memory_nlgs_3D          => clean_memory                ! solver `this` ledger + scratch arrays
 
-  use postpro_3D, only : init_postpro_command_3D       => init_postpro_command      , &
+  use postpro_3D, only : i_SOLVER_INFORMATIONS                                      , &
+                         i_VIOLATION_EVOLUTION                                      , &
+                         i_DISSIPATED_ENERGY                                        , &
+                         init_postpro_command_3D       => init_postpro_command      , &
+                         activate_command_3D           => activate_command          , &
                          start_postpro_3D              => start_postpro             , &
                          messages_for_users_3D         => messages_for_users        , &
                          postpro_during_computation_3D => postpro_during_computation, &
@@ -294,6 +298,8 @@ contains
   !>      Last because every module above can register entities into it.
   subroutine reset_all_state()
     implicit none
+
+    call close_postpro_files_3D()
 
     ! Wrapper-local state first.
     call assume_is_initialized_3D(0)
@@ -577,9 +583,13 @@ contains
     !io_hdf5_initOutFile( 'lmgc90.h5' )
     ! no display
 
-    !!postpro_unit = init_postpro_command_3D()
-    !call start_postpro_3D(postpro_unit, restart)
-    !call messages_for_users_3D
+    if( debug ) then
+      postpro_unit = init_postpro_command_3D(0)
+      call activate_command_3D(i_SOLVER_INFORMATIONS, 1, 0)
+      call activate_command_3D(i_VIOLATION_EVOLUTION, 1, 0)
+      call activate_command_3D(i_DISSIPATED_ENERGY  , 1, 0)
+      call start_postpro_3D(postpro_unit, restart)
+    end if
 
     call comp_mass_RBDY3()
 
@@ -675,7 +685,9 @@ contains
       !WriteHDF5(nsteps)
     end if
 
-    !call postpro_during_computation_3D
+    if( debug ) then
+      call postpro_during_computation_3D()
+    end if
 
   end subroutine compute_one_step
 

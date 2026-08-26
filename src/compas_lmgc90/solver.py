@@ -97,7 +97,7 @@ class Solver:
         self.v_drvdof = defaultdict(dict)
         self.f_drvdof = defaultdict(dict)
 
-        # OUTBOX is the working directory LMGC90 writes its diagnostic
+        # OUTBOX/POSTPRO are the working directory LMGC90 writes its diagnostic
         # dumps to (out_bodies, dof, vloc_rloc, etc.). The Fortran
         # wrapper guards every one of those writes behind ``if(debug)``,
         # so the directory is only ever consulted when debug=True.
@@ -107,6 +107,7 @@ class Solver:
         # someone runs the script is a footgun.
         if debug:
             Path("./OUTBOX").mkdir(exist_ok=True)
+            Path("./POSTPRO").mkdir(exist_ok=True)
         # Create LMGC90 solver instance.
         # The wrapped Fortran initialize() defensively resets every LMGC90
         # module's state first (PRPRx/POLYR/RBDY3/tact_behav/bulk_behav/

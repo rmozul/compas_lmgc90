@@ -130,11 +130,14 @@ module wrap_lmgc90_compas
                    wti_compute_contact_PRPRx       , &
                    sto_compute_contact_PRPRx       , &
                    set_cundall_iteration_PRPRx     , &
+                   set_f2f_tol_small_surface_PRPRx , &
                    set_f2f_tol_PRPRx               , &
                    with_nodal_contact_PRPRx        , &
                    set_max_nb_pt_select_PRPRx      , &
                    sto_set_explicit_detection_PRPRx, &
                    sto_set_decompression_PRPRx     , &
+                   sto_force_f2f_detection_PRPRx   , &
+                   sto_force_nc_detection_PRPRx    , &
                    set_size_factor_POLYR_PRPRx     , &
                    set_clipper_parameters          , &
                    clean_memory_PRPRx
@@ -227,21 +230,23 @@ module wrap_lmgc90_compas
   integer            :: reset = 0
   ! detection
   integer            :: lsap       = 10      ! Low Size Array Polyr
-  character(len=21)  :: PRPRx_detection = 'STO'
+  character(len=32)  :: PRPRx_detection = 'STO'
   !character(len=21)  :: PRPRx_detection = 'CpCundall'  
   !character(len=21)  :: PRPRx_detection = 'CpF2f'
   
-  integer            :: cundall_it = 200     ! for Cundall iteration
-  real(kind=8)       :: cds        = 0.d0    ! cd shrink
-  real(kind=8)       :: ans        = 0.d0    ! an shrink
-  real(kind=8)       :: delta      = 0.d0    ! intersection simplification parameter for clipper
-  ! still detection, but not used yet
-  real(kind=8)       :: f2f_tol    = 1.d-3   ! for face to face
-  real(kind=8)       :: halo       = 1.d-3   ! global distance for non convex
-  integer            :: nb_max_pt  = 6       ! for triangles intersection
+  integer            :: cundall_it = 200      ! for Cundall iteration
+  real(kind=8)       :: cds        = 0.d0     ! cd shrink
+  real(kind=8)       :: ans        = 0.d0     ! an shrink
+  real(kind=8)       :: delta      = 0.d0     ! intersection simplification parameter for clipper
+  ! 
+  real(kind=8)       :: small_f2f_tol = 0.d-3 ! to skip small surface within face to face
+  real(kind=8)       :: f2f_tol       = 1.d-3 ! for face to face
+  real(kind=8)       :: halo          = 1.d-3 ! global distance for non convex
   ! STO detection
-  logical            :: expl       = .true.  ! f2f or not
-  real(kind=8)       :: decomp     = -1.     ! decompression for STO detection must be <1. (ck) and >-1. (face)
+  logical            :: expl       = .true.   ! f2f or not
+  real(kind=8)       :: decomp     = -1.      ! decompression for STO detection must be <1. (ck) and >-1. (face)
+  logical            :: sto_f2f    = .false.  ! force f2f within STO
+  logical            :: sto_nc     = .false.  ! force nc  within STO
   
   ! internal parameter for detection
   integer            :: freq_detec = 1
@@ -252,25 +257,48 @@ module wrap_lmgc90_compas
   ! output for debug purpose
   logical :: debug = .false.
 
-  public initialize      , &
-         compute_one_step, &
+  public initialize       , &
+         set_boolean_param, &
+         set_integer_param, &
+         set_double_param , &
+         set_string_param , &
+         compute_one_step , &
          finalize
 
 contains
 
   !> a short utility to convert char(len=5) to char(len=ch_char), dimension(5)
   !> hopefully inlined and optimized by compilers...
-  function string_f2c_(fromF)
+  function string_f2c_5_(fromF)
     implicit none
     character(len=5), intent(in) :: fromF
-    character(len=c_char), dimension(5) :: string_f2c_
+    character(len=c_char), dimension(5) :: string_f2c_5_
     !
     integer :: i
     do i = 1, 5
-      string_f2c_(i) = fromF(i:i)
+      string_f2c_5_(i) = fromF(i:i)
     end do
 
   end function
+
+  !> a short utility to convert char(len=32) to char(len=ch_char), dimension(32)
+  !> hopefully inlined and optimized by compilers...
+  function string_c2f_32_(fromC)
+    implicit none
+    character(len=c_char), dimension(32), intent(in) :: fromC
+    character(len=32) :: string_c2f_32_
+    !
+    integer :: i
+
+    string_c2f_32_(:) = ''
+
+    do i = 1, 32
+      if( fromC(i) == c_null_char ) exit
+      string_c2f_32_(i:i) = fromC(i)
+    end do
+
+  end function
+
 
   ! ------------------------------------------------- !
   ! first : some simple functions to run a simulation !
@@ -304,7 +332,6 @@ contains
     ! Wrapper-local state first.
     call assume_is_initialized_3D(0)
     is_detec_init    = .false.
-    detection_method = 0
 
     ! LMGC90 module state.
     call clean_memory_PRPRx
@@ -340,6 +367,7 @@ contains
 
     call active_diagonal_resolution_3D()
 
+    call set_f2f_tol_small_surface_PRPRx(small_f2f_tol)
     select case( trim(PRPRx_detection) )
     case( 'CpCundall' )
       detection_method = 2
@@ -365,15 +393,15 @@ contains
       call set_f2f_tol_PRPRx(f2f_tol)
     case( 'TrianglesIntersection' )
       detection_method = 6
-      call set_max_nb_pt_select_PRPRx(nb_max_pt)
+      call set_max_nb_pt_select_PRPRx(6)
     case( 'STO' )
       detection_method      = 7
       call set_f2f_tol_PRPRx(f2f_tol)
       call STO_set_explicit_detection_PRPRx(expl)
       call STO_set_decompression_PRPRx(decomp)
       !optional
-      !call STO_force_f2f_detection_PRPRx()
-      !call set_f2f_tol_small_surface_PRPRx(small_tol)
+      if( sto_f2f ) call STO_force_f2f_detection_PRPRx()
+      if( sto_nc  ) call STO_force_nc_detection_PRPRx()
       
     end select
 
@@ -452,7 +480,7 @@ contains
 
   end subroutine add_one_tact_behav
 
-  subroutine set_see_tables(alert) bind(c, name='lmgc90_set_see_tables')!cd, an, behav, alert, halo)
+  subroutine set_see_tables(alert) bind(c, name='lmgc90_set_see_tables')
     implicit none
     real(c_double), intent(in), value :: alert
 
@@ -755,26 +783,26 @@ contains
 
         ! starting to copy... first inter numbering info
         inter(i_inter)%icdan       = i_inter
-        inter(i_inter)%cdan(1:5)   = string_f2c_( i2n(i_prprx) )
+        inter(i_inter)%cdan(1:5)   = string_f2c_5_( i2n(i_prprx) )
 
         ! getting info relative to cd/an
-        inter(i_inter)%cdbdy(1:5)  = string_f2c_( m2n( verlet(i_cdtac)%cdmodel ) )
+        inter(i_inter)%cdbdy(1:5)  = string_f2c_5_( m2n( verlet(i_cdtac)%cdmodel ) )
         inter(i_inter)%icdbdy      = verlet(i_cdtac)%cdbdy
-        inter(i_inter)%anbdy(1:5)  = string_f2c_( m2n( verlet(i_cdtac)%anmodel(i_adj) ) )
+        inter(i_inter)%anbdy(1:5)  = string_f2c_5_( m2n( verlet(i_cdtac)%anmodel(i_adj) ) )
         inter(i_inter)%ianbdy      = verlet(i_cdtac)%anbdy(i_adj)
 
-        inter(i_inter)%cdtac(1:5)  = string_f2c_( c2n( con%id_cdtac ) )
+        inter(i_inter)%cdtac(1:5)  = string_f2c_5_( c2n( con%id_cdtac ) )
         inter(i_inter)%icdtac      = verlet(i_cdtac)%cdtac
 
-        inter(i_inter)%antac(1:5)  = string_f2c_( c2n( con%id_antac ) )
+        inter(i_inter)%antac(1:5)  = string_f2c_5_( c2n( con%id_antac ) )
         inter(i_inter)%iantac      = verlet(i_cdtac)%antac(i_adj)
 
         inter(i_inter)%icdsci      = verlet(i_cdtac)%cdsci(i_adj)
         inter(i_inter)%iansci      = verlet(i_cdtac)%ansci(i_adj)
 
         ! contact law and status info
-        inter(i_inter)%behav(1:5)  = string_f2c_( get_tact_behav_name(i_law) )
-        inter(i_inter)%status(1:5) = string_f2c_( s2n( verlet(i_cdtac)%status(i_adj) ) )
+        inter(i_inter)%behav(1:5)  = string_f2c_5_( get_tact_behav_name(i_law) )
+        inter(i_inter)%status(1:5) = string_f2c_5_( s2n( verlet(i_cdtac)%status(i_adj) ) )
 
         ! all real data
         inter(i_inter)%coor(1:3) = verlet(i_cdtac)%coor(1:3,i_adj)
@@ -835,5 +863,120 @@ contains
     end do
 
   end subroutine get_all_bodies
+
+  integer(c_int) function set_boolean_param(cparam, val) bind(c, name='lmgc90_set_boolean_param')
+    implicit none
+
+    character(kind=c_char,len=1), dimension(32), intent(in) :: cparam
+    logical(kind=c_bool), intent(in), value :: val
+    !
+    character(len=32) :: fparam
+
+    set_boolean_param = 0
+
+    fparam = string_c2f_32_(cparam)
+
+    select case( trim(fparam) )
+          !1234567890123456789012345678901
+    case( "Detection explicit face to face" )
+      expl = val
+    case( "Detection STO force face to face" )
+      sto_f2f = val
+    case( "Detection STO force non-convex" )
+      sto_nc  = val
+    case default
+      set_boolean_param = -1
+    end select
+
+  end function set_boolean_param
+
+  integer(c_int) function set_integer_param(cparam, val) bind(c, name='lmgc90_set_integer_param')
+    implicit none
+
+    character(kind=c_char,len=1), dimension(32), intent(in) :: cparam
+    integer(kind=c_int), intent(in), value :: val
+    !
+    character(len=32) :: fparam
+
+    set_integer_param = 0
+
+    fparam = string_c2f_32_(cparam)
+
+    select case( trim(fparam) )
+    case( "Cundall iterations" )
+      cundall_it = val
+    case( "Gauss Seidel loop iterations" )
+      gs_it1 = val
+    case( "Gauss Seidel number of loops" )
+      gs_it2 = val
+    case( "Low Size Array POLYR" )
+      lsap = val
+    case default
+      set_integer_param = -1
+    end select
+
+  end function set_integer_param
+
+  integer(c_int) function set_double_param(cparam, val) bind(c, name='lmgc90_set_double_param')
+    implicit none
+
+    character(kind=c_char,len=1), dimension(32), intent(in) :: cparam
+    real(kind=c_double), intent(in), value :: val
+    !
+    character(len=32) :: fparam
+
+    set_double_param = 0
+
+    fparam = string_c2f_32_(cparam)
+
+    select case( trim(fparam) )
+    case( "Contact Solver tolerance" )
+      tol = val
+    case( "Contact Solver relaxation" )
+      relax = val
+    case( "Detection candidate shrink" )
+      cds = val
+    case( "Detection antagonist shrink" )
+      ans = val
+    case( "Detection simplification param" )
+      delta = val
+          !12345678901234567890123456789012
+    case( "Detection Face to face tolerance" )
+      f2f_tol = val
+    case( "Detection Face to face small sur" )
+      small_f2f_tol = val
+    case( "Detection Non-convex distance"    )
+      halo = val
+    case( "Detection STO decompression rate" )
+      decomp = val
+    case default
+      set_double_param = -1
+    end select
+
+  end function set_double_param
+
+  integer(c_int) function set_string_param(cparam, cval) bind(c, name='lmgc90_set_string_param')
+    implicit none
+
+    character(kind=c_char,len=1), dimension(32), intent(in) :: cparam
+    character(kind=c_char,len=1), dimension(32), intent(in) :: cval
+    !
+    character(len=32) :: fparam, fval
+
+    set_string_param = 0
+
+    fparam = string_c2f_32_(cparam)
+    fval   = string_c2f_32_(cval  )
+
+    select case( trim(fparam) )
+    case( "Contact Solver norm" )
+      norm = trim(fval)
+    case( "Contact Detection method" )
+      PRPRx_detection = trim(fval)
+    case default
+      set_string_param = -1
+    end select
+
+  end function set_string_param
 
 end module wrap_lmgc90_compas

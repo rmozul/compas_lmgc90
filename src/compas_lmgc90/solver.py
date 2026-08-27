@@ -484,6 +484,27 @@ class Solver:
         self.lmgc90.add_one_tact_behav(name, law, coeffs)
         self.alert = alert
 
+    def set_param(self, param, value):
+        """ Set a parameter of LMGC90 simulation.
+
+        Parameters
+        ----------
+        param : str
+            The name of the parameter
+        val: (bool, int, float or str)
+            Value to set
+        """
+
+        if isinstance(value, bool):
+            self.lmgc90.set_boolean_param(param, value)
+        elif isinstance(value, int):
+            self.lmgc90.set_integer_param(param, value)
+        elif isinstance(value, float):
+            self.lmgc90.set_double_param(param, value)
+        elif isinstance(value, str):
+            self.lmgc90.set_string_param(param, value)
+
+
     def preprocess(self):
         """Initialize LMGC90 simulation.
 

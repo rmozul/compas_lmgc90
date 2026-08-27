@@ -32,6 +32,11 @@ extern "C" {
     int lmgc90_get_nb_bodies();
     void lmgc90_get_all_bodies(lmgc90_rigid_body_3D* bodies, int size);
     void lmgc90_apply_forces();
+
+    int lmgc90_set_boolean_param(char cparam[32], bool val);
+    int lmgc90_set_integer_param(char cparam[32], int val);
+    int lmgc90_set_double_param(char cparam[32], double val);
+    int lmgc90_set_string_param(char cparam[32], char cval[32]);
 }
 
 namespace nb = nanobind;
@@ -176,6 +181,31 @@ public:
                 bodies[i].frame[3], bodies[i].frame[4], bodies[i].frame[5],
                 bodies[i].frame[6], bodies[i].frame[7], bodies[i].frame[8]
             });
+        }
+    }
+
+    void set_boolean_param(std::string param, bool val) {
+        int err = lmgc90_set_boolean_param(param.data(), val);
+        if (err==-1) {
+            throw std::runtime_error("Error unknown parameter");
+        }
+    }
+    void set_integer_param(std::string param, int val) {
+        int err = lmgc90_set_integer_param(param.data(), val);
+        if (err==-1) {
+            throw std::runtime_error("Error unknown parameter");
+        }
+    }
+    void set_double_param(std::string param, double val) {
+        int err = lmgc90_set_double_param(param.data(), val);
+        if (err==-1) {
+            throw std::runtime_error("Error unknown parameter");
+        }
+    }
+    void set_string_param(std::string param, std::string cval) {
+        int err = lmgc90_set_string_param(param.data(), cval.data());
+        if (err==-1) {
+            throw std::runtime_error("Error unknown parameter");
         }
     }
 
@@ -354,6 +384,22 @@ void set_drvdof(int i_bdyty, int i_dof, std::vector<double> drv_values, bool vel
     g_solver->set_drvdof(i_bdyty, i_dof, drv_values, velocity, evolution);
 }
 
+void set_boolean_param(std::string param, bool val) {
+    g_solver->set_boolean_param(param, val);
+}
+
+void set_integer_param(std::string param, int val) {
+    g_solver->set_integer_param(param, val);
+}
+
+void set_double_param(std::string param, double val) {
+    g_solver->set_double_param(param, val);
+}
+
+void set_double_param(std::string param, std::string val) {
+    g_solver->set_string_param(param, val);
+}
+
 void close_before_computing() {
     if (!g_solver) throw std::runtime_error("Solver not initialized");
     g_solver->close_before_computing();
@@ -401,6 +447,10 @@ NB_MODULE(_lmgc90, m) {
              nb::arg("mat"), nb::arg("coor"), nb::arg("faces"), nb::arg("vertices"), nb::arg("nb_v"), nb::arg("nb_f"))
         .def("set_drvdof", &LMGC90Solver::set_drvdof,
              nb::arg("i_bdyty"), nb::arg("i_dof"), nb::arg("drv_values"), nb::arg("velocity"), nb::arg("evolution"))
+        .def("set_boolean_param", &LMGC90Solver::set_boolean_param, nb::arg("param"), nb::arg("val"))
+        .def("set_integer_param", &LMGC90Solver::set_integer_param, nb::arg("param"), nb::arg("val"))
+        .def("set_double_param", &LMGC90Solver::set_double_param, nb::arg("param"), nb::arg("val"))
+        .def("set_string_param", &LMGC90Solver::set_string_param, nb::arg("param"), nb::arg("val"))
         .def("close_before_computing", &LMGC90Solver::close_before_computing)
         .def("get_initial_state", &LMGC90Solver::get_initial_state)
         .def("compute_one_step", &LMGC90Solver::compute_one_step)

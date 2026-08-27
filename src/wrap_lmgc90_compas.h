@@ -95,4 +95,9 @@
   extern  int lmgc90_get_nb_bodies();
   extern void lmgc90_get_all_bodies(struct lmgc90_rigid_body_3D * all_bodies, int size);
 
+  extern int lmgc90_set_boolean_param(char[32] cparam, bool val);
+  extern int lmgc90_set_integer_param(char[32] cparam, int val);
+  extern int lmgc90_set_double_param(char[32] cparam, double val);
+  extern int lmgc90_set_string_param(char[32] cparam, char[32] cval);
+
 #endif /* wrap_lmgc90_compas_h */

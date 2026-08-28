@@ -196,7 +196,7 @@ endif()
 if( LMGC90_GIT_URL )
     FetchContent_Declare(lmgc90
         GIT_REPOSITORY "${LMGC90_GIT_URL}"
-        GIT_TAG aa4687c2eb0d2d67249ea6e04f17a990b894107f  # tip of fix_compas, 2026-07-22
+        GIT_TAG 3306fe965662a54b8f031e20ac81f21d47a19013  # tip of fix_compas, 2026-08-28
     )
 elseif( LMGC90_SOURCE_DIR )
     FetchContent_Declare(lmgc90 SOURCE_DIR ${LMGC90_SOURCE_DIR})

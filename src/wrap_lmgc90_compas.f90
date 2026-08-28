@@ -264,7 +264,7 @@ module wrap_lmgc90_compas
          set_double_param , &
          set_string_param , &
          compute_one_step , &
-         finalize
+         reset_all_state
 
 contains
 
@@ -325,7 +325,8 @@ contains
   !>   7. postpro_3D — file unit handles (no-op if postpro never started).
   !>   8. overall — entity registry, NSTEP, time, every global flag.
   !>      Last because every module above can register entities into it.
-  subroutine reset_all_state()
+  subroutine reset_all_state() bind(c, name='lmgc90_finalize')
+
     implicit none
 
     call close_postpro_files_3D()
@@ -731,13 +732,6 @@ contains
     end if
 
   end subroutine compute_one_step
-
-  subroutine finalize() bind(c, name='lmgc90_finalize')
-    implicit none
-
-    call reset_all_state()
-
-  end subroutine finalize
 
   ! ------------------------------------------------------ !
   ! second : some accessors to get interactions and bodies !

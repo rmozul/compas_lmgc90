@@ -132,7 +132,8 @@ module wrap_lmgc90_compas
                    set_cundall_iteration_PRPRx     , &
                    set_f2f_tol_small_surface_PRPRx , &
                    set_f2f_tol_PRPRx               , &
-                   with_nodal_contact_PRPRx        , &
+                   unset_f2f_PRPRx                 , &
+                   set_nodal_contact_PRPRx         , &
                    set_max_nb_pt_select_PRPRx      , &
                    sto_set_explicit_detection_PRPRx, &
                    sto_set_decompression_PRPRx     , &
@@ -367,13 +368,38 @@ contains
 
     call active_diagonal_resolution_3D()
 
+    call set_detection_parameters_()
+
+    !optional
+    !call set_shrink_polyr_faces_PRPRx(shrink)
+
+    !low size array polyr
+    call set_size_factor_polyr_PRPRx(lsap)
+
+    call init_dimension('3D        ')
+
+    call set_time_step(dt, .false.)
+    call init_theta_integrator(theta, .true.)
+
+    call open_tact_behav_ll()
+
+  end subroutine initialize
+
+  subroutine set_detection_parameters_()
+    implicit none
+
+    ! force reset of f2f activation
+    call unset_f2f_PRPRx()
+    ! force reset of nocal contact activation
+    call set_nodal_contact_PRPRx(.false.)
+
     call set_f2f_tol_small_surface_PRPRx(small_f2f_tol)
     select case( trim(PRPRx_detection) )
     case( 'CpCundall' )
       detection_method = 2
       call set_cundall_iteration_PRPRx(cundall_it)
       call set_clipper_parameters(cds, ans, delta)
-      call with_nodal_contact_PRPRx()
+      call set_nodal_contact_PRPRx(.true.)
     case( 'CpF2fExplicit' )
       detection_method = 2
       call set_f2f_tol_PRPRx(f2f_tol)
@@ -405,20 +431,7 @@ contains
       
     end select
 
-    !optional   
-    !call set_shrink_polyr_faces_PRPRx(shrink)
-
-    !low size array polyr
-    call set_size_factor_polyr_PRPRx(lsap)
-
-    call init_dimension('3D        ')
-
-    call set_time_step(dt, .false.)
-    call init_theta_integrator(theta, .true.)
-
-    call open_tact_behav_ll()
-
-  end subroutine initialize
+  end subroutine set_detection_parameters_
 
   subroutine set_materials(nb, c_densities) bind(c, name='lmgc90_set_materials')
     implicit none
@@ -880,10 +893,13 @@ contains
           !1234567890123456789012345678901
     case( "Detection explicit face to face" )
       expl = val
+      call set_detection_parameters_()
     case( "Detection STO force face to face" )
       sto_f2f = val
+      call set_detection_parameters_()
     case( "Detection STO force non-convex" )
       sto_nc  = val
+      call set_detection_parameters_()
     case default
       set_boolean_param = -1
     end select
@@ -905,6 +921,7 @@ contains
     select case( trim(fparam) )
     case( "Cundall iterations" )
       cundall_it = val
+      call set_detection_parameters_()
     case( "Gauss Seidel loop iterations" )
       gs_it1 = val
     case( "Gauss Seidel number of loops" )
@@ -936,19 +953,26 @@ contains
       relax = val
     case( "Detection candidate shrink" )
       cds = val
+      call set_detection_parameters_()
     case( "Detection antagonist shrink" )
       ans = val
+      call set_detection_parameters_()
     case( "Detection simplification param" )
       delta = val
+      call set_detection_parameters_()
           !12345678901234567890123456789012
     case( "Detection Face to face tolerance" )
       f2f_tol = val
+      call set_detection_parameters_()
     case( "Detection Face to face small sur" )
       small_f2f_tol = val
+      call set_detection_parameters_()
     case( "Detection Non-convex distance"    )
       halo = val
+      call set_detection_parameters_()
     case( "Detection STO decompression rate" )
       decomp = val
+      call set_detection_parameters_()
     case default
       set_double_param = -1
     end select
@@ -973,6 +997,7 @@ contains
       norm = trim(fval)
     case( "Contact Detection method" )
       PRPRx_detection = trim(fval)
+      call set_detection_parameters_()
     case default
       set_string_param = -1
     end select

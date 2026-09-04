@@ -299,12 +299,13 @@ class Solver:
             v_flat = [item for sublist in v for item in sublist]
             f_flat = [item + 1 for sublist in f for item in sublist]  # 1-indexed
             mat = self.d2n[self.densities[i]]
-            # driven dof managment
 
+            self.lmgc90.set_one_polyr(mat, self.centroids[i], f_flat, v_flat)
+
+            # driven dof managment
             nb_f = len(self.f_drvdof[i]) if i in self.f_drvdof.keys() else 0
             nb_v = len(self.v_drvdof[i]) if i in self.v_drvdof.keys() else 0
-
-            self.lmgc90.set_one_polyr(mat, self.centroids[i], f_flat, v_flat, nb_v, nb_f)
+            self.lmgc90.reset_drvdof(i + 1, nb_v, nb_f)
 
             for i_dof, drv_vals in self.v_drvdof[i].items():
                 evol = drv_vals.shape[0] == 2

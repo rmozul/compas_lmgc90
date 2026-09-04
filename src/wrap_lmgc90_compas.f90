@@ -93,6 +93,7 @@ module wrap_lmgc90_compas
                    set_nb_RBDY3                  , &
                    add_one_RBDY3                 , &
                    set_one_tactor_RBDY3          , &
+                   reset_drvdof_one_RBDY3        , &
                    set_blmty_RBDY3               , &
                    add_predef_driven_dof_RBDY3   , &
                    add_evol_driven_dof_RBDY3     , &
@@ -257,14 +258,6 @@ module wrap_lmgc90_compas
 
   ! output for debug purpose
   logical :: debug = .false.
-
-  public initialize       , &
-         set_boolean_param, &
-         set_integer_param, &
-         set_double_param , &
-         set_string_param , &
-         compute_one_step , &
-         reset_all_state
 
 contains
 
@@ -515,7 +508,7 @@ contains
 
   end subroutine
 
-  subroutine set_one_polyr(c_behav, coor, c_connec, nb_tri, c_vertices, nb_v, nb_v_ddof, nb_f_ddof) &
+  subroutine set_one_polyr(c_behav, coor, c_connec, nb_tri, c_vertices, nb_v) &
                bind(c, name='lmgc90_set_one_polyr')
     implicit none
     type(c_ptr), intent(in), value :: c_behav
@@ -524,8 +517,6 @@ contains
     integer(c_int) , intent(in), value :: nb_tri
     type(c_ptr)                , value :: c_vertices
     integer(c_int) , intent(in), value :: nb_v
-    integer(c_int) , intent(in), value :: nb_v_ddof
-    integer(c_int) , intent(in), value :: nb_f_ddof
     !
     integer     , dimension(:), pointer :: connec
     real(kind=8), dimension(:), pointer :: vertices
@@ -548,7 +539,7 @@ contains
     color = 'REDxx'
 
     ! always only 1 contactor
-    call add_one_RBDY3(coor, 1, nb_v_ddof, nb_f_ddof)
+    call add_one_RBDY3(coor, 1)
     i_bdyty = get_nb_RBDY3()
 
     ! now set contactor:
@@ -564,6 +555,17 @@ contains
     call set_blmty_RBDY3(i_bdyty, behav, vol, inertia, frame)
 
   end subroutine
+
+  subroutine reset_drvdof(i_bdyty, nb_v_ddof, nb_f_ddof) &
+               bind(c, name='lmgc90_reset_drvdof')
+    implicit none
+    integer(c_int) , intent(in), value :: i_bdyty
+    integer(c_int) , intent(in), value :: nb_v_ddof
+    integer(c_int) , intent(in), value :: nb_f_ddof
+
+    call reset_drvdof_one_RBDY3(i_bdyty, nb_v_ddof, nb_f_ddof)
+
+  end subroutine reset_drvdof
 
   subroutine set_drvdof(i_bdyty, i_dof, drv_values, drv_size, velocity, evolution) &
                bind(c, name='lmgc90_set_drvdof')

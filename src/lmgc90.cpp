@@ -22,7 +22,8 @@ extern "C" {
     void lmgc90_add_one_tact_behav(char name[5], char law[30], int nb_p, double * params);
     void lmgc90_set_see_tables(double alert);
     void lmgc90_set_nb_bodies(int nb);
-    void lmgc90_set_one_polyr(char behav[5], double coor[3], int* faces, int nb_faces, double* vertices, int nb_v, int nb_v_ddof, int nb_f_ddof);
+    void lmgc90_set_one_polyr(char behav[5], double coor[3], int* faces, int nb_faces, double* vertices, int nb_v);
+    void lmgc90_reset_drvdof(int i_bdyty, int nb_v_ddof, int nb_f_ddof);
     void lmgc90_set_drvdof(int i_bdyty, int i_dof, double * drv_values, int drv_size, bool velocity, bool evolution);
     void lmgc90_close_before_computing(void);
     void lmgc90_compute_one_step(void);
@@ -209,7 +210,7 @@ public:
         lmgc90_set_nb_bodies(nb);
     }
 
-    void set_one_polyr(std::string mat, std::vector<double> coor, std::vector<int> faces, std::vector<double> vertices, int nb_v, int nb_f) {
+    void set_one_polyr(std::string mat, std::vector<double> coor, std::vector<int> faces, std::vector<double> vertices) {
         require_owner_("set_one_polyr");
         check_fixed_len_(mat, 5, "material name");
         if (coor.size() != 3) {
@@ -225,7 +226,11 @@ public:
         int nb_faces = faces.size() / 3;
         int nb_vertices = vertices.size() / 3;
         
-        lmgc90_set_one_polyr(mat.data(), coor.data(), faces.data(), nb_faces, vertices.data(), nb_vertices, nb_v, nb_f);
+        lmgc90_set_one_polyr(mat.data(), coor.data(), faces.data(), nb_faces, vertices.data(), nb_vertices);
+    }
+
+    void reset_drvdof(int i_bdyty, int nb_v, int nb_f) {
+        lmgc90_reset_drvdof(i_bdyty, nb_v, nb_f);
     }
 
     void set_drvdof(int i_bdyty, int i_dof, std::vector<double> drv_values, bool velocity, bool evolution) {
@@ -457,9 +462,14 @@ void set_nb_bodies(int nb) {
     g_solver->set_nb_bodies(nb);
 }
 
-void set_one_polyr(std::string mat, std::vector<double> coor, std::vector<int> faces, std::vector<double> vertices, int nb_v, int nb_f) {
+void set_one_polyr(std::string mat, std::vector<double> coor, std::vector<int> faces, std::vector<double> vertices) {
     if (!g_solver) throw std::runtime_error("Solver not initialized");
-    g_solver->set_one_polyr(mat, coor, faces, vertices, nb_v, nb_f);
+    g_solver->set_one_polyr(mat, coor, faces, vertices);
+}
+
+void reset_drvdof(int i_bdyty, int nb_v, int nb_f) {
+    if (!g_solver) throw std::runtime_error("Solver not initialized");
+    g_solver->reset_drvdof(i_bdyty, nb_v, nb_f);
 }
 
 void set_drvdof(int i_bdyty, int i_dof, std::vector<double> drv_values, bool velocity, bool evolution) {
@@ -527,7 +537,9 @@ NB_MODULE(_lmgc90, m) {
         .def("set_see_tables", &LMGC90Solver::set_see_tables, nb::arg("alert"))
         .def("set_nb_bodies", &LMGC90Solver::set_nb_bodies, nb::arg("nb"))
         .def("set_one_polyr", &LMGC90Solver::set_one_polyr,
-             nb::arg("mat"), nb::arg("coor"), nb::arg("faces"), nb::arg("vertices"), nb::arg("nb_v"), nb::arg("nb_f"))
+             nb::arg("mat"), nb::arg("coor"), nb::arg("faces"), nb::arg("vertices"))
+        .def("reset_drvdof", &LMGC90Solver::reset_drvdof,
+             nb::arg("i_bdyty"), nb::arg("nb_v"), nb::arg("nb_f"))
         .def("set_drvdof", &LMGC90Solver::set_drvdof,
              nb::arg("i_bdyty"), nb::arg("i_dof"), nb::arg("drv_values"), nb::arg("velocity"), nb::arg("evolution"))
         .def("set_boolean_param", &LMGC90Solver::set_boolean_param, nb::arg("param"), nb::arg("val"))
@@ -593,8 +605,13 @@ NB_MODULE(_lmgc90, m) {
           "Set number of rigid bodies");
     
     m.def("set_one_polyr", &set_one_polyr, 
-          nb::arg("mat"), nb::arg("coor"), nb::arg("faces"), nb::arg("vertices"), nb::arg("nb_v"), nb::arg("nb_f"),
+          nb::arg("mat"), nb::arg("coor"), nb::arg("faces"), nb::arg("vertices"),
           "Add one polyhedral body");
+
+    m.def("reset_drvdof", &reset_drvdof,
+          nb::arg("i_bdyty"), nb::arg("nb_v"), nb::arg("nb_f"),
+          "Reset the number of driven dof (velocity and force) of one  polyhedral body");
+    
     m.def("set_drvdof", &set_drvdof,
           nb::arg("i_bdyty"), nb::arg("i_dof"), nb::arg("drv_values"), nb::arg("velocity"), nb::arg("evolution"),
           "Set one driven dof (velocity or force) of one  polyhedral body");

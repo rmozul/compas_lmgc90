@@ -905,7 +905,7 @@ contains
 
     select case( trim(fparam) )
           !1234567890123456789012345678901
-    case( "Detection explicit face to face" )
+    case( "Detection STO expl face to face" )
       expl = val
       call set_detection_parameters_()
     case( "Detection STO force face to face" )

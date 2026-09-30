@@ -320,7 +320,13 @@ class Solver:
             mat = self.d2n[self.densities[i]]
 
             self.lmgc90.set_one_polyr(mat, self.centroids[i], f_flat, v_flat)
+            self.apply_bc()
 
+
+    def apply_bc(self):
+        """Re-apply all boundary condition to LMGC90 solver."""
+
+        for i, mesh in enumerate(self.trimeshes):
             # driven dof managment
             nb_f = len(self.f_drvdof[i]) if i in self.f_drvdof.keys() else 0
             nb_v = len(self.v_drvdof[i]) if i in self.v_drvdof.keys() else 0
